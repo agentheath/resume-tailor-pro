@@ -274,20 +274,24 @@ silently add it back.
    Merge all roles — anchor first, then other experience in order — into a single `"experience"`
    array. Include `output_basename` from config if set. Write the spec to `output/<slug>/spec.json`.
 
-8. **Render.** Run:
+8. **Render.** Run the renderer and **capture the basename from its stdout** — `render.js` prints
+   `Wrote <dir>/<basename>.docx` (and `.md`/`.html`); it does NOT print a bare basename, so derive
+   it by stripping the directory and the `.docx` extension:
    ```bash
-   node renderer/render.js output/<slug>/spec.json output/<slug>/
+   ABS="$(pwd)/output/<slug>"
+   OUT="$(node renderer/render.js output/<slug>/spec.json output/<slug>/)"
+   echo "$OUT"
+   # Derive BASE from the "Wrote …/<BASE>.docx" line (config.output_basename, else a slug of the
+   # name, else "resume"):
+   BASE="$(printf '%s\n' "$OUT" | sed -n 's/^Wrote .*\/\([^/]*\)\.docx$/\1/p' | head -n1)"
    ```
-   This writes `output/<slug>/<basename>.docx`, `<basename>.md`, and `<basename>.html`, where
-   `<basename>` is `config.output_basename` (else a slug of the name, else `resume`). Capture the
-   basename from the renderer's stdout (it prints each written path). The `.html` is the source
-   for the PDF.
+   This writes `$ABS/$BASE.docx`, `$BASE.md`, and `$BASE.html`. The `.html` is the source for the
+   PDF. `$ABS` (absolute output dir) and `$BASE` are reused by every command below — always use
+   the absolute `$ABS/$BASE.*` form so cwd changes don't break paths.
 
    **Detect Chrome (default, preferred PDF path).** Chrome renders the HTML faithfully (flexbox
    header, flush-right dates, `nowrap` tagline). Detect it portably:
    ```bash
-   ABS="$(pwd)/output/<slug>"
-   BASE="<basename>"   # from render.js stdout
    detect_chrome() {
      if [ -n "$CHROME" ] && [ -x "$CHROME" ]; then echo "$CHROME"; return; fi
      for c in \
@@ -401,6 +405,35 @@ silently add it back.
     Then present `output/<slug>/<basename>.docx`, `<basename>.md`, and `<basename>.pdf` (in that
     order). For multiple postings processed serially: report each summary in sequence; present
     each posting's files separately.
+
+    **Auto-open the PDF.** After presenting, open the finished PDF in the user's default PDF
+    application, then print a one-line note (`Opened <basename>.pdf in your default PDF viewer.`)
+    so it isn't surprising. **Guards:**
+    - Only if a PDF was actually generated (skip on the no-Chrome-and-no-fallback path).
+    - **Single posting only.** When the request had more than one posting (serial processing),
+      open **none** and instead print the output paths — avoids a flurry of windows.
+
+    Use the **absolute** path `$ABS/$BASE.pdf` (cwd after rendering is the skill root, not the
+    output dir) and detect the OS — don't assume macOS. Reuse the same platform signals the Chrome
+    block uses:
+    ```bash
+    PDF="$ABS/$BASE.pdf"
+    [ -f "$PDF" ] || { echo "No PDF generated — skipping auto-open."; exit 0; }
+    case "$(uname -s)" in
+      Darwin)            open "$PDF" ;;
+      Linux)
+        if grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null; then           # WSL
+          WPDF="$(wslpath -w "$PDF")"
+          wslview "$PDF" 2>/dev/null || cmd.exe /c start "" "$WPDF"
+        else                                                                    # native Linux
+          xdg-open "$PDF" 2>/dev/null || gio open "$PDF"
+        fi ;;
+      MINGW*|MSYS*|CYGWIN*)                                                     # Git Bash / MSYS
+        WPDF="$(cygpath -w "$PDF")"; start "" "$WPDF" 2>/dev/null || cygstart "$PDF" ;;
+      *) echo "Unknown OS — open $PDF manually." ;;
+    esac
+    ```
+    (In a PowerShell context rather than a POSIX shell, the equivalent is `Start-Process "$PDF"`.)
 
 ## Spec Schema
 

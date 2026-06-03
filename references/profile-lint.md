@@ -40,15 +40,20 @@ Run all checks, collect every failure (don't stop at the first), then report.
    if a summary opens with a title not derivable from `summary_openers`.
 
 8. **config references resolve** — companies named in `always_include` / `conditional_include`
-   exist in `master_resume.md` (`anchor_role_header` or `other_experience`). Adjacent/genuine
-   domain lists are free-form (no cross-check).
+   exist in `master_resume.md` (`anchor_role_header` or `other_experience`).
+
+9. **no genuine/adjacent domain contradiction** — no profession appears in **both**
+   `config.md` `genuine_domains` and the `profession` field of any `adjacent_not_in` entry
+   (case-insensitive compare). A domain can't be one the user works *in* and *only near* at once —
+   the contradiction would mis-thread the role-header title. (Onboarding's web-research step can
+   now populate both lists, so this is a real failure mode.)
 
 ## Reporting and behavior
 
 - **In onboarding (Phase 7):** report each failure specifically (which theme, which bullet,
   which term) and **offer to fix** it interactively, then re-lint.
-- **In tailoring (Step 0):** if any **hard** check (1–6, 8) fails, **block** the run — print the
-  specific failures and tell the user to re-run onboarding or hand-fix, then re-invoke. Do NOT
+- **In tailoring (Step 0):** if any **hard** check (1–6, 8, 9) fails, **block** the run — print
+  the specific failures and tell the user to re-run onboarding or hand-fix, then re-invoke. Do NOT
   proceed to render. Check 7 is a warning and does not block.
 
 Each reported failure names the exact location and the fix, e.g.:
@@ -58,3 +63,5 @@ Each reported failure names the exact location and the fix, e.g.:
   or define the theme.`
 - `Excluded term "Python" appears in Skills category "Data & Analytics" — remove it (it may stay
   in bullet text).`
+- `Profession "Developer Relations" is in both genuine_domains and adjacent_not_in — pick one: a
+  domain you work IN (genuine_domains) or only NEAR (adjacent_not_in).`
