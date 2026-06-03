@@ -33,10 +33,10 @@ resume" and starve every future tailored render.
 > master file, the better every future tailored resume will be. So we'll try to capture as much
 > defensible material as possible.
 >
-> **Logistics.** This takes ~45–90 minutes, and you can stop any time and resume right where you
-> left off — I save after every step. We'll build two files: your master resume (all your content)
-> and a config (your personalization rules). At the end I'll do a test render so you get a real
-> Word/PDF resume out of it.
+> **Logistics.** You can stop any time and resume right where you left off — I save after every
+> step. We'll build two files: your master resume (all your content) and a config (your
+> personalization rules). At the end I'll do a test render so you get a real Word/PDF resume out
+> of it.
 
 Create `profile/` and seed `.onboarding-state.json`:
 ```json
@@ -195,8 +195,17 @@ Fill the remaining `config.md` fields by interview:
 2. Run `npm install` in `renderer/` **up front** (so the test render isn't the first time deps
    are touched). Detect Chrome (per SKILL.md) and report the PDF path or fallback.
 3. Do a **test render** of one theme to confirm the basename and that the toolchain works.
-4. Present `master_resume.md` + `config.md` for final review.
-5. Set `.onboarding-state.json` `status: "complete"`.
+4. **Strongly encourage a careful manual review of `master_resume.md`.** This file is the source
+   of every future tailored resume, so accuracy here pays off on every run. Ask the user to read
+   it end to end and check, in particular: every metric and number is correct and defensible;
+   titles, dates, and company names are right; each bullet is honest; nothing was mis-merged
+   during ingest. Invite them to edit directly or have you make changes — then re-run
+   `profile-lint`. Also skim `config.md` for the personalization rules. Mention that they can
+   revise the master file any time; the tailoring flow re-lints on every run.
+5. Tell the user how output works: **by default the skill produces a one-page resume** (best for
+   recruiter screening / ATS); they can ask for **`--full` (full mode)** — say "full," "long
+   version," or "two-page" — for an expanded 1.5–2 page version (referrals / direct-to-hiring-manager).
+6. Set `.onboarding-state.json` `status: "complete"`.
 
 ## Completion
 On `status: complete`, the Step-0 gate will route future invocations straight to the tailoring
