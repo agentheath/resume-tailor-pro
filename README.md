@@ -12,9 +12,9 @@ it once, then invoke it by name.
 
 ```bash
 # Personal (available in every project):
-git clone <this-repo-url> ~/.claude/skills/resume-tailor-pro
+git clone https://github.com/agentheath/resume-tailor-pro.git ~/.claude/skills/resume-tailor-pro
 # …or for a single project only:
-git clone <this-repo-url> .claude/skills/resume-tailor-pro
+git clone https://github.com/agentheath/resume-tailor-pro.git .claude/skills/resume-tailor-pro
 ```
 
 Claude Code auto-discovers it on the next run — no restart needed. (You can also drop the folder
