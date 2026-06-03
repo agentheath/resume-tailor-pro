@@ -214,6 +214,12 @@ silently add it back.
    - Order by priority (1 first), then by file order.
    - **Hybrid theme renders:** see Edge Cases — P1 bullets from both themes; P2 from the primary
      theme only.
+   - **Assemble the COMPLETE default set — do not pre-trim.** Include every P1 and P2 bullet for
+     the theme plus all qualifying experience entries (`always_include`, and every
+     `conditional_include` whose rule resolves to INCLUDE for this mode/theme). Step 9 *balances*
+     this to a comfortably full single page — trimming if it overflows, **backfilling if it comes
+     up short**. Dropping content here, before measuring, is the classic cause of a half-empty
+     page; let step 9 do the fitting.
 
 5. **Consider extras.** Scan the `Extras` section. Each extra has `tags:`. For each: does a tag
    match the posting's signal phrases, and does it strengthen the resume relative to an
@@ -343,24 +349,45 @@ silently add it back.
    If none are available, deliver the `.docx` + `.md` and note in the report that no PDF could be
    generated in this environment.
 
-9. **Verify page fit.** "Re-render" here means re-run **both** `node renderer/render.js` (to
-   regenerate the HTML) **and** the Chrome `--print-to-pdf` conversion, since the PDF comes from
-   the HTML.
-   - **Default mode:** check the PDF page count:
-     ```bash
-     python3 -c "
-     import re
-     data = open('$ABS/$BASE.pdf','rb').read()
-     print(len(re.findall(rb'/Type\s*/Page[\s/]', data)))
-     "
-     ```
-     If more than 1, work through the trim steps in order, re-rendering after each, stopping as
-     soon as it fits. Apply at most 2 re-renders total; if still over, proceed and note overflow.
+9. **Verify page fit — target a *comfortably full* single page, not merely ≤1 page.** "Re-render"
+   here means re-run **both** `node renderer/render.js` (to regenerate the HTML) **and** the
+   Chrome `--print-to-pdf` conversion, since the PDF comes from the HTML. A one-page resume that
+   fills only half the page is a failure mode just as real as overflow — it reads as thin and
+   wastes prime space. Default mode balances in **two directions**.
+
+   First measure. Get the page count, and judge the fill of the final page (use the optional
+   step-8 screenshot, or measure rendered height vs. page height):
+   ```bash
+   python3 -c "
+   import re
+   data = open('$ABS/$BASE.pdf','rb').read()
+   print('pages:', len(re.findall(rb'/Type\s*/Page[\s/]', data)))
+   "
+   ```
+
+   - **Default mode — if MORE than one page (overflow):** work through the trim steps in order,
+     re-rendering after each, stopping as soon as it fits. Apply at most 2 trim re-renders; if
+     still over, proceed and note overflow.
      1. Drop the last priority-2 bullet; re-render. Repeat per remaining P2 until fit or none left.
      2. Drop any `conditional_include` entry that the current mode/theme would only marginally
         include; re-render.
      3. Trim the longest priority-1 bullet by one sentence; re-render.
      **Never drop or trim an entry flagged `always_include` in config.**
+
+   - **Default mode — if it fits on one page but the page is UNDER-FULL** (roughly the bottom
+     ≥20–25% is empty, i.e. more than a few blank lines): **backfill** — greedily add the
+     best held-back content back in, re-rendering after each addition and **keeping an addition
+     only while the result stays on one page** (revert the addition that tips it to two). Add in
+     this order until the page is comfortably full or no held-back content remains:
+     1. Re-add any `conditional_include` / non-anchor experience entry you trimmed or that sits
+        just outside the INCLUDE rule for this mode/theme (most relevant first).
+     2. Switch an existing bullet to its `full` version (more detail), longest-impact bullet first.
+     3. Promote a relevant priority-3 bullet for the theme (default mode normally skips P3; the
+        fill pass may use one to occupy the page).
+     Cap at 2 backfill re-renders. **Never fabricate content to fill space** — if the user simply
+     has little material (e.g. a new-grad profile), a partial page is acceptable; stop and note it.
+     The convergence target is a single page with no awkward bottom whitespace.
+
    - **Full mode:** skip the one-page check. Verify no orphaned single line on the last page
      (fewer than 3 lines → trim one bullet slightly). The `always_include` rule still applies.
 
