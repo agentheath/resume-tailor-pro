@@ -93,3 +93,7 @@ and `.md`.
 
 Say "set up my resume" any time to revise your profile; existing content is loaded and edited in
 place, never overwritten.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
