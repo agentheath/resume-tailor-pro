@@ -283,7 +283,26 @@ silently add it back.
    Merge all roles — anchor first, then other experience in order — into a single `"experience"`
    array. Include `output_basename` from config if set. Write the spec to `output/<slug>/spec.json`.
 
-8. **Render.** Run the renderer and **capture the basename from its stdout** — `render.js` prints
+8. **Render.** 
+
+   **Recommended: render + build PDF + page-check in one command.** When Chrome/Chromium and
+   poppler are both available, `renderer/check.sh <slug>` does the whole of steps 8–9's mechanics
+   in one shot — it runs `render.js` (honoring `RESUME_DENSITY`), builds the delivered PDF via the
+   detected browser, then reports the **authoritative page count** (`pdfinfo`) and **last-page fill
+   %** (`pdftotext -bbox`), flags the orphan zone, and writes one PNG per actual page to
+   `output/<slug>/_page-*.png` (Read the last one to confirm fill; delete the `_page-*.png` before
+   delivery). It derives the basename from the spec and detects the browser portably, so no
+   identity or platform literals are needed:
+   ```bash
+   renderer/check.sh <slug>                    # e.g. renderer/check.sh acme-staff-engineer
+   RESUME_DENSITY=0.97 renderer/check.sh <slug> # nudge page-fit (see step 9)
+   ```
+   If poppler is absent, `check.sh` still produces the PDF and prints a note (the page count and
+   orphan check are skipped). If Chrome/Chromium is absent, use the manual path below for the PDF
+   fallback. The manual breakdown that follows is the portable fallback and the source of truth for
+   what `check.sh` automates.
+
+   Run the renderer and **capture the basename from its stdout** — `render.js` prints
    `Wrote <dir>/<basename>.docx` (and `.md`/`.html`); it does NOT print a bare basename, so derive
    it by stripping the directory and the `.docx` extension:
    ```bash
@@ -359,8 +378,17 @@ silently add it back.
    one-page resume that fills only half the page is a failure mode just as real as a three-page
    overflow — it reads as thin and wastes prime space. Default mode balances in **two directions**.
 
-   First measure. Get the page count, and judge the fill of the final page (use the optional
-   step-8 screenshot, or measure rendered height vs. page height):
+   First measure — always from the **real PDF**, never from an HTML screenshot (screen media has no
+   page breaks, so it can't tell 1 vs. 2 pages or spot an orphan). The simplest path is to re-run
+   `renderer/check.sh <slug>`: it re-renders, rebuilds the PDF, and prints the authoritative page
+   count plus `Last-page fill: ~N%` with an orphan flag. Equivalently, with poppler installed:
+   ```bash
+   pdfinfo "$ABS/$BASE.pdf" | grep '^Pages:'                    # authoritative count
+   python3 renderer/lastpage_fill.py "$ABS/$BASE.pdf"           # last-page fill %, for orphan check
+   pdftoppm -png -r 110 "$ABS/$BASE.pdf" "$ABS/_page"           # Read _page-<N>.png to eyeball fill
+   ```
+   If poppler is unavailable, fall back to a raw-bytes count (less reliable — can miscount with
+   compressed object streams; install poppler whenever possible):
    ```bash
    python3 -c "
    import re
@@ -368,6 +396,17 @@ silently add it back.
    print('pages:', len(re.findall(rb'/Type\s*/Page[\s/]', data)))
    "
    ```
+
+   **Density lever (non-destructive page-fit).** A render that lands in the **orphan zone** (~1.0–1.2
+   pages — just past one page, last page nearly empty) can be nudged WITHOUT adding or removing
+   bullets via the `RESUME_DENSITY` env var (clamped 0.9–1.1; the `.docx` stays at baseline, only the
+   PDF's vertical rhythm tunes). Lower = tighter (pull back toward a clean one page); higher = looser
+   (open up a sparse page). Stay within ~0.95–1.05 to keep it ATS-safe. Re-check after:
+   ```bash
+   RESUME_DENSITY=0.97 renderer/check.sh <slug>   # or: RESUME_DENSITY=0.97 node renderer/render.js …
+   ```
+   Use this lever for orphan-zone fixes BEFORE trimming/backfilling whole bullets; reach for the
+   content changes below when density alone can't resolve it.
 
    - **Default mode — if MORE than two pages (overflow):** work through the trim steps in order,
      re-rendering after each, stopping as soon as it fits within two pages. Apply at most 2 trim
@@ -522,7 +561,19 @@ should follow the `skills_order` guidance in `master_resume.md` for the chosen v
 - `templates/` — blank scaffolds copied into `profile/` on first run.
 - `renderer/render.js` — Node script that takes a JSON spec and writes `<basename>.docx`,
   `<basename>.md`, `<basename>.html`. The `.html` carries the print CSS and is the PDF source.
-- `output/<slug>/` — per-render output (gitignored): spec.json + the rendered files.
+  Honors the `RESUME_DENSITY` env var (default 1.0; clamp 0.9–1.1) — a vertical-rhythm knob that
+  tunes the **PDF** page-fit (line-height + section/bullet spacing) without adding or removing
+  content, for nudging a render out of the orphan zone. The `.docx` stays at baseline spacing.
+- `renderer/check.sh` — one-command render + page-accurate pagination: runs `render.js`, builds the
+  PDF via the detected browser, then reports the true page count (`pdfinfo`) and last-page fill %
+  (`pdftotext -bbox`), flags the orphan zone, and writes one PNG per actual page (`pdftoppm`) to
+  `output/<slug>/_page-*.png`. Usage: `renderer/check.sh <slug>` (honors `RESUME_DENSITY`; portable
+  basename + browser detection; degrades gracefully if poppler is absent). Canonical way to decide
+  1-vs-2 pages and detect orphans — never use an HTML screenshot for that.
+- `renderer/lastpage_fill.py` — helper used by `check.sh`: prints how far down text reaches on the
+  PDF's last page, as a percent of page height (for orphan detection).
+- `output/<slug>/` — per-render output (gitignored): spec.json + the rendered files
+  (`_page-*.png` from `check.sh` are temporary — delete before delivery).
 
 ## Edge Cases
 
@@ -562,3 +613,18 @@ cd renderer && npm install
 fallbacks (LibreOffice is the best non-Chrome fallback because it also honors tab stops and
 tables). If no converter exists at all, the skill still delivers the `.docx` + `.md` and notes the
 missing PDF in the report.
+
+**Page-fit check (poppler, optional but recommended).** `renderer/check.sh` and the step-9 page-fit
+verification use poppler's `pdfinfo`, `pdftoppm`, and `pdftotext` to read the **actual PDF** (true
+count + per-page rasters + last-page text extent) rather than a screen screenshot of the HTML
+(which has no page breaks and leads to wrong page calls). Install it for reliable 1-vs-2-page and
+orphan decisions:
+
+```bash
+brew install poppler          # macOS
+apt-get install poppler-utils # Debian/Ubuntu
+```
+
+Poppler is optional: without it, `check.sh` still produces the PDF and the skill falls back to the
+raw-bytes page count in step 9 — but install it whenever possible, since the rasterized last page is
+the only dependable orphan check.

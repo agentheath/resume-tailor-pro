@@ -121,12 +121,12 @@ function buildHtml(spec) {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${escapeHtml(spec.name)}</title>
 <style>
-  @page { size: letter; margin: 0.75in; }
+  @page { size: letter; margin: 0.5in 0.75in; }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
     font-family: 'Calibri', 'Carlito', 'Helvetica Neue', Arial, sans-serif;
-    font-size: 10.5pt; line-height: 1.2; color: #000;
+    font-size: 10.5pt; line-height: ${dn(1.2, 3)}; color: #000;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
   .name { text-align: center; font-weight: 700; font-size: 19pt; margin: 0 0 1pt; }
@@ -136,11 +136,11 @@ function buildHtml(spec) {
   .links a { color: #0563C1; text-decoration: none; }
   h2.section {
     font-size: 11.5pt; font-weight: 700; text-transform: uppercase;
-    border-bottom: 1px solid #808080; padding-bottom: 1.5pt; margin: 8pt 0 4pt;
+    border-bottom: 1px solid #808080; padding-bottom: 1.5pt; margin: ${dn(8,1)}pt 0 ${dn(4,1)}pt;
     break-after: avoid;
   }
-  .summary { margin: 0 0 3pt; text-align: justify; }
-  .job { margin: 0 0 4pt; }
+  .summary { margin: 0 0 ${dn(3,1)}pt; text-align: justify; }
+  .job { margin: 0 0 ${dn(4,1)}pt; }
   .job:first-of-type { margin-top: 0; }
   .job-header {
     display: flex; justify-content: space-between; align-items: baseline;
@@ -150,8 +150,8 @@ function buildHtml(spec) {
   .job-title { flex: 1 1 auto; }
   .job-dates { color: #404040; font-style: italic; white-space: nowrap; flex: 0 0 auto; }
   ul { margin: 2pt 0 0; padding-left: 15pt; }
-  li { margin: 0 0 1.5pt; break-inside: avoid; }
-  .skill { margin: 0 0 1.5pt; }
+  li { margin: 0 0 ${dn(1.5)}pt; break-inside: avoid; }
+  .skill { margin: 0 0 ${dn(1.5)}pt; }
   .skill-label { font-weight: 700; }
   .education { margin: 0; }
 </style></head>
@@ -174,6 +174,19 @@ const FONT = "Calibri";
 const BODY_SIZE = 21;   // 10.5pt (half-points)
 const NAME_SIZE = 40;   // 20pt
 const HEAD_SIZE = 24;   // 12pt section headings
+
+// Vertical-rhythm knob for the HTML/PDF path only (the delivered PDF is built
+// from the HTML). Lets a render that lands in the "orphan zone" (~1.0-1.2 pages)
+// be nudged to a clean 1 page or a filled 2 pages WITHOUT adding/removing whole
+// bullets. 1.0 = baseline. Clamped to a safe, ATS-friendly range. Set via env:
+//   RESUME_DENSITY=0.97 node render.js spec.json out/
+// Lower = tighter (pull back toward 1 page); higher = looser. The .docx is left
+// at baseline spacing on purpose — density only tunes PDF page-fit.
+const DENSITY = (() => {
+  const d = parseFloat(process.env.RESUME_DENSITY || "1");
+  return isFinite(d) ? Math.min(1.1, Math.max(0.9, d)) : 1;
+})();
+const dn = (base, places = 2) => (base * DENSITY).toFixed(places);
 
 // ---------- load spec ----------
 
@@ -404,4 +417,5 @@ Packer.toBuffer(doc).then(buf => {
   console.log("Wrote " + docxPath);
   console.log("Wrote " + mdPath);
   console.log("Wrote " + htmlPath);
+  console.log("Density: " + DENSITY + (DENSITY === 1 ? " (baseline)" : " (PDF vertical rhythm tuned)"));
 }).catch(e => die("docx packing failed: " + e.message));

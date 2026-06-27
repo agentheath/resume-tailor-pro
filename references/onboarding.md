@@ -193,7 +193,10 @@ Fill the remaining `config.md` fields by interview:
 1. Run `references/profile-lint.md`. Report any failures specifically and **offer to fix**, then
    re-lint until clean.
 2. Run `npm install` in `renderer/` **up front** (so the test render isn't the first time deps
-   are touched). Detect Chrome (per SKILL.md) and report the PDF path or fallback.
+   are touched). Detect Chrome (per SKILL.md) and report the PDF path or fallback. If poppler
+   (`pdfinfo`) isn't present, mention it's an optional one-time install that enables the
+   page-accurate fit check (`renderer/check.sh`): `brew install poppler` / `apt-get install
+   poppler-utils`. Don't block onboarding on it.
 3. Do a **test render** of one theme to confirm the basename and that the toolchain works.
 4. **Strongly encourage a careful manual review of `master_resume.md`.** This file is the source
    of every future tailored resume, so accuracy here pays off on every run. Ask the user to read
