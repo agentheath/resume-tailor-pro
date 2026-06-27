@@ -12,9 +12,8 @@
  *   output/<basename>.html
  *
  * Design constraints (kept in lockstep with SKILL.md's ATS + voice rules):
- *   - Single-column layout, Calibri font, US Letter, 1" margins (slightly
- *     tightened top/bottom to help one-page fit).
- *   - Standard section headings: Summary, Experience, Skills, Education.
+ *   - Single-column layout, Calibri font, US Letter, 0.75" margins.
+ *   - Standard section headings: Summary, Skills, Experience, Education.
  *   - Bullets use docx numbering with the "•" glyph (never literal unicode runs).
  *   - Dates are passed through verbatim from the spec (hyphen format enforced
  *     upstream by the skill). The renderer additionally normalizes any stray
@@ -104,7 +103,7 @@ function buildHtml(spec) {
     const bullets = (job.bullets || []).map(b => `<li>${htmlFromText(b)}</li>`).join("");
     return `<div class="job">
       <div class="job-header">
-        <span class="job-title"><strong>${escapeHtml(job.title)}</strong> — ${escapeHtml(job.company)}</span>
+        <span class="job-title"><strong>${escapeHtml(job.company)}</strong> — <em>${escapeHtml(job.title)}</em></span>
         ${dates}
       </div>
       <ul>${bullets}</ul>
@@ -122,7 +121,7 @@ function buildHtml(spec) {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${escapeHtml(spec.name)}</title>
 <style>
-  @page { size: letter; margin: 0.5in 0.75in; }
+  @page { size: letter; margin: 0.75in; }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
@@ -138,6 +137,7 @@ function buildHtml(spec) {
   h2.section {
     font-size: 11.5pt; font-weight: 700; text-transform: uppercase;
     border-bottom: 1px solid #808080; padding-bottom: 1.5pt; margin: 8pt 0 4pt;
+    break-after: avoid;
   }
   .summary { margin: 0 0 3pt; text-align: justify; }
   .job { margin: 0 0 4pt; }
@@ -145,11 +145,12 @@ function buildHtml(spec) {
   .job-header {
     display: flex; justify-content: space-between; align-items: baseline;
     gap: 12pt; margin-top: 4pt;
+    break-after: avoid;
   }
   .job-title { flex: 1 1 auto; }
   .job-dates { color: #404040; font-style: italic; white-space: nowrap; flex: 0 0 auto; }
   ul { margin: 2pt 0 0; padding-left: 15pt; }
-  li { margin: 0 0 1.5pt; }
+  li { margin: 0 0 1.5pt; break-inside: avoid; }
   .skill { margin: 0 0 1.5pt; }
   .skill-label { font-weight: 700; }
   .education { margin: 0; }
@@ -161,10 +162,10 @@ function buildHtml(spec) {
   ${links ? `<div class="links">${links}</div>` : ""}
   <h2 class="section">Summary</h2>
   <div class="summary">${htmlFromText(spec.summary)}</div>
-  <h2 class="section">Experience</h2>
-  ${experience}
   <h2 class="section">Skills</h2>
   ${skills}
+  <h2 class="section">Experience</h2>
+  ${experience}
   ${education}
 </body></html>`;
 }
@@ -271,6 +272,18 @@ children.push(new Paragraph({
   children: runsFromText(spec.summary),
 }));
 
+// SKILLS
+children.push(sectionHeading("Skills"));
+spec.skills.forEach(s => {
+  children.push(new Paragraph({
+    spacing: { after: 30 },
+    children: [
+      new TextRun({ text: s.label + ": ", bold: true, font: FONT, size: BODY_SIZE }),
+      ...runsFromText(s.value),
+    ],
+  }));
+});
+
 // EXPERIENCE
 children.push(sectionHeading("Experience"));
 // Content width = page - left - right margins.
@@ -278,14 +291,15 @@ const CONTENT_W = 12240 - 1080 - 1080; // 10080 twips
 const DATES_W = 1900;                   // right column for the date range
 const TITLE_W = CONTENT_W - DATES_W;
 spec.experience.forEach(job => {
-  // Title — Company (left cell)   dates (right cell, right-aligned) on one line.
+  // Company — Title (left cell)   dates (right cell, right-aligned) on one line.
   // Rendered as a borderless 2-col table so the alignment survives PDF export.
   // Location is intentionally omitted from the header per the standard layout.
   const leftPara = new Paragraph({
     spacing: { before: 80, after: 0 },
     children: [
-      new TextRun({ text: job.title, bold: true, font: FONT, size: BODY_SIZE }),
-      new TextRun({ text: "  —  " + job.company, font: FONT, size: BODY_SIZE }),
+      new TextRun({ text: job.company, bold: true, font: FONT, size: BODY_SIZE }),
+      new TextRun({ text: "  —  ", font: FONT, size: BODY_SIZE }),
+      new TextRun({ text: job.title, italics: true, font: FONT, size: BODY_SIZE }),
     ],
   });
   const rightPara = new Paragraph({
@@ -313,18 +327,6 @@ spec.experience.forEach(job => {
       children: runsFromText(b),
     }));
   });
-});
-
-// SKILLS
-children.push(sectionHeading("Skills"));
-spec.skills.forEach(s => {
-  children.push(new Paragraph({
-    spacing: { after: 30 },
-    children: [
-      new TextRun({ text: s.label + ": ", bold: true, font: FONT, size: BODY_SIZE }),
-      ...runsFromText(s.value),
-    ],
-  }));
 });
 
 // EDUCATION
@@ -377,16 +379,16 @@ Packer.toBuffer(doc).then(buf => {
   md.push("## Summary");
   md.push(spec.summary);
   md.push("");
+  md.push("## Skills");
+  spec.skills.forEach(s => md.push(`- **${s.label}:** ${s.value}`));
+  md.push("");
   md.push("## Experience");
   spec.experience.forEach(job => {
-    md.push(`### ${job.title} — ${job.company}`);
+    md.push(`### ${job.company} — *${job.title}*`);
     if (job.dates) md.push(`*${fixDashes(job.dates)}*`);
     (job.bullets || []).forEach(b => md.push(`- ${b}`));
     md.push("");
   });
-  md.push("## Skills");
-  spec.skills.forEach(s => md.push(`- **${s.label}:** ${s.value}`));
-  md.push("");
   if (spec.education) {
     md.push("## Education");
     md.push(spec.education);

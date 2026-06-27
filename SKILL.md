@@ -1,6 +1,6 @@
 ---
 name: resume-tailor-pro
-description: Distributable, self-onboarding resume tailoring engine. On first run it interviews you to build your own master resume and personalization rules; thereafter it tailors your resume to any job posting and renders a Word + Markdown + PDF. Use when the user wants to set up a resume profile from scratch ("set up my resume," "onboard me"), or — once set up — provides a job posting (URL or pasted text) and asks for a tailored resume, asks to "apply" or "customize my resume" for a role, wants help picking which version to use, or wants cover-letter material tied to a posting. All content lives in one per-user master file of tagged bullets; the skill selects the best combination for the posting, threads the posting's language honestly, and renders. Optimized for the single-anchor individual-contributor professional; degrades gracefully for other histories. (Note: this is the generalized, distributable fork of the personal resume-tailor skill — they are independent; install one or the other.)
+description: Distributable, self-onboarding resume tailoring engine. On first run it interviews you to build your own master resume and personalization rules; thereafter it tailors your resume to any job posting and renders a Word + Markdown + PDF. Use when the user wants to set up a resume profile from scratch ("set up my resume," "onboard me"), or — once set up — provides a job posting (URL or pasted text) and asks for a tailored resume, asks to "apply" or "customize my resume" for a role, wants help picking which version to use, or wants cover-letter material tied to a posting. All content lives in one per-user master file of tagged bullets; the skill selects the best combination for the posting, threads the posting's language honestly, and renders. Optimized for the single-anchor individual-contributor professional; degrades gracefully for other histories.
 ---
 
 # Resume Tailor Pro
@@ -23,15 +23,17 @@ engine never hard-codes a name, title, or term list — those come from the prof
 
 **Two tailoring modes:**
 
-- **Default (one-page).** Selects all priority-1 and priority-2 bullets for the chosen variant.
-  Step 9 trims to one page if needed. Uses the "default" version of each bullet. Optimized for
-  recruiter screening and ATS.
+- **Default.** Selects all priority-1 and priority-2 bullets for the chosen variant. Uses the
+  "default" version of each bullet. Typically 1–2 pages; one and two pages are both fine — never
+  trim solely to reach one page. Step 9 trims only if the render exceeds two pages, and conversely
+  *fills the page* with on-theme content if a one-page render leaves substantial whitespace.
+  Optimized for recruiter screening and ATS.
 - **Full (--full).** Selects priority-1, -2, and -3 bullets, using each bullet's "full" version
   where one exists (falling back to "default" when it doesn't). Typically 1.5–2 pages. For
   referral submissions and direct-to-hiring-manager sends.
 
-**How to trigger full mode:** the user says "full," "long version," "two-page," "don't trim,"
-"include everything," or similar. If unclear, default to one-page.
+**How to trigger full mode:** the user says "full," "long version," "don't trim,"
+"include everything," or similar. If unclear, use default mode.
 
 ## Step 0 — Onboarding gate + profile lint
 
@@ -112,7 +114,7 @@ Content Constraints below.
 
 **Skills section density cap:** Keep each skill value to **5–8 terms**, not 12+. A leaner skills
 section enables a richer experience section. If skills density is crowding out experience bullets
-on a default one-page render, trim skills values before trimming bullets.
+on a default render, trim skills values before trimming bullets.
 
 **What to avoid in spec assembly:**
 - "Open to remote" in the header contact line — move to summary.
@@ -217,9 +219,10 @@ silently add it back.
    - **Assemble the COMPLETE default set — do not pre-trim.** Include every P1 and P2 bullet for
      the theme plus all qualifying experience entries (`always_include`, and every
      `conditional_include` whose rule resolves to INCLUDE for this mode/theme). Step 9 *balances*
-     this to a comfortably full single page — trimming if it overflows, **backfilling if it comes
-     up short**. Dropping content here, before measuring, is the classic cause of a half-empty
-     page; let step 9 do the fitting.
+     this — trimming only if it overflows two pages, **backfilling if a one-page render comes
+     up short**. One and two pages are both acceptable; never pre-trim to force one page. Dropping
+     content here, before measuring, is the classic cause of a half-empty page; let step 9 do the
+     fitting.
 
 5. **Consider extras.** Scan the `Extras` section. Each extra has `tags:`. For each: does a tag
    match the posting's signal phrases, and does it strengthen the resume relative to an
@@ -342,18 +345,19 @@ silently add it back.
    ```bash
    # LibreOffice headless — honors tab stops and tables. Names the PDF after the input file.
    soffice --headless --convert-to pdf --outdir "$ABS" "$ABS/$BASE.docx"
-
+   
    # docx2pdf — requires Microsoft Word installed.
    docx2pdf "$ABS/$BASE.docx" "$ABS/$BASE.pdf"
    ```
    If none are available, deliver the `.docx` + `.md` and note in the report that no PDF could be
    generated in this environment.
 
-9. **Verify page fit — target a *comfortably full* single page, not merely ≤1 page.** "Re-render"
-   here means re-run **both** `node renderer/render.js` (to regenerate the HTML) **and** the
-   Chrome `--print-to-pdf` conversion, since the PDF comes from the HTML. A one-page resume that
-   fills only half the page is a failure mode just as real as overflow — it reads as thin and
-   wastes prime space. Default mode balances in **two directions**.
+9. **Verify page fit — one or two pages are both fine; the goal is a render with no wasted
+   whitespace and no overflow past two pages.** "Re-render" here means re-run **both**
+   `node renderer/render.js` (to regenerate the HTML) **and** the Chrome `--print-to-pdf`
+   conversion, since the PDF comes from the HTML. **Never trim solely to reach one page.** A
+   one-page resume that fills only half the page is a failure mode just as real as a three-page
+   overflow — it reads as thin and wastes prime space. Default mode balances in **two directions**.
 
    First measure. Get the page count, and judge the fill of the final page (use the optional
    step-8 screenshot, or measure rendered height vs. page height):
@@ -365,9 +369,9 @@ silently add it back.
    "
    ```
 
-   - **Default mode — if MORE than one page (overflow):** work through the trim steps in order,
-     re-rendering after each, stopping as soon as it fits. Apply at most 2 trim re-renders; if
-     still over, proceed and note overflow.
+   - **Default mode — if MORE than two pages (overflow):** work through the trim steps in order,
+     re-rendering after each, stopping as soon as it fits within two pages. Apply at most 2 trim
+     re-renders; if still over, proceed and note overflow.
      1. Drop the last priority-2 bullet; re-render. Repeat per remaining P2 until fit or none left.
      2. Drop any `conditional_include` entry that the current mode/theme would only marginally
         include; re-render.
@@ -376,19 +380,25 @@ silently add it back.
 
    - **Default mode — if it fits on one page but the page is UNDER-FULL** (roughly the bottom
      ≥20–25% is empty, i.e. more than a few blank lines): **backfill** — greedily add the
-     best held-back content back in, re-rendering after each addition and **keeping an addition
-     only while the result stays on one page** (revert the addition that tips it to two). Add in
-     this order until the page is comfortably full or no held-back content remains:
+     best held-back content back in, re-rendering after each addition. Add in this order until the
+     page is comfortably full or no held-back content remains:
      1. Re-add any `conditional_include` / non-anchor experience entry you trimmed or that sits
         just outside the INCLUDE rule for this mode/theme (most relevant first).
      2. Switch an existing bullet to its `full` version (more detail), longest-impact bullet first.
      3. Promote a relevant priority-3 bullet for the theme (default mode normally skips P3; the
         fill pass may use one to occupy the page).
-     Cap at 2 backfill re-renders. **Never fabricate content to fill space** — if the user simply
-     has little material (e.g. a new-grad profile), a partial page is acceptable; stop and note it.
-     The convergence target is a single page with no awkward bottom whitespace.
+        Cap at 2 backfill re-renders. A backfill addition that tips the render onto a second page is
+        fine **as long as that second page is itself reasonably filled** — a clean, comfortably full
+        single page still beats a two-page render with only a line or two on page 2, so revert the
+        addition that produces an orphaned second page. **Never fabricate content to fill space** — if
+        the user simply has little material (e.g. a new-grad profile), a partial page is acceptable;
+        stop and note it.
 
-   - **Full mode:** skip the one-page check. Verify no orphaned single line on the last page
+   - **Default mode — if it lands on two pages:** that's acceptable; do not trim to one. Just
+     verify no orphaned single line on the last page (fewer than 3 lines → trim one bullet slightly
+     to pull it back, or backfill it into a fuller page). The `always_include` rule still applies.
+
+   - **Full mode:** skip the page-count check. Verify no orphaned single line on the last page
      (fewer than 3 lines → trim one bullet slightly). The `always_include` rule still applies.
 
 10. **Independent reviewer pass.** Before presenting anything, use the Agent tool
@@ -413,13 +423,14 @@ silently add it back.
     7. Any other rule violations to address before delivery.
 
     After findings: apply corrections to `output/<slug>/spec.json`, re-render, re-export the PDF,
-    then re-run the step 9 page-fit check (corrections can add length). If a finding is unfixable
+    then re-run the step 9 page-fit check (corrections can add length, push past two pages, or
+    create an orphaned last line). If a finding is unfixable
     in this render (it's baked into the master file), note it in the report and proceed — don't
     block delivery. No issues → go to step 11.
 
 11. **Report and present.** Show the user:
     ```
-    Mode: <default (1-page) | full>
+    Mode: <default | full>
     Variant: <name> (matched on: <2-3 phrases from posting>)
     Bullets selected: <list of bullet IDs, with priority levels>
     Keywords threaded: <list of 8-12 posting phrases now in the resume>
